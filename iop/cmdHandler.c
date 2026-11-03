@@ -235,6 +235,41 @@ pkoWriteMem(char *buf, int len)
 };
 
 //////////////////////////////////////////////////////////////////////////
+// The status record: set by the EE (mxlink, NPM_STATUS) when a program
+// starts and when it is ready, and answered from here to PKO_STATUS_CMD:
+// no EE, no host: connection, so a host may ask at any time.
+static struct
+{
+    unsigned int state;
+    unsigned int returns;
+    int last_status;
+    char path[PKO_MAX_PATH];
+} status;
+
+void pkoSetStatus(const void *data, int size)
+{
+    if (size > sizeof(status))
+        size = sizeof(status);
+    memcpy(&status, data, size);
+    status.path[PKO_MAX_PATH - 1] = '\0';
+}
+
+static void
+pkoStatus(int sock, struct sockaddr_in *to, int tolen)
+{
+    static pko_pkt_status_rly rly;
+
+    rly.cmd = htonl(PKO_STATUS_RLY);
+    rly.len = htons(sizeof(rly));
+    rly.version = htonl(1);
+    rly.state = htonl(status.state);
+    rly.returns = htonl(status.returns);
+    rly.last_status = htonl(status.last_status);
+    memcpy(rly.path, status.path, PKO_MAX_PATH);
+    sendto(sock, &rly, sizeof(rly), 0, (struct sockaddr *)to, tolen);
+}
+
+//////////////////////////////////////////////////////////////////////////
 static void
 cmdListener(int sock)
 {
@@ -300,6 +335,9 @@ cmdListener(int sock)
                 break;
             case PKO_WRITE_MEM:
                 pkoWriteMem(recvbuf, len);
+                break;
+            case PKO_STATUS_CMD:
+                pkoStatus(sock, &remote_addr, addrlen);
                 break;
             default:
                 dbgprintf("IOP cmd: Uknown cmd received\n");

@@ -16,7 +16,10 @@
 
 ////////////////////////////////////////////////////////////////////////
 #define NPM_PUTS     0x01
+#define NPM_STATUS   0x02 /* mxlink: the status record (cmdHandler.c) */
 #define RPC_NPM_USER 0x014d704e
+
+void pkoSetStatus(const void *data, int size);
 
 ////////////////////////////////////////////////////////////////////////
 static void *
@@ -28,6 +31,9 @@ naplinkRpcHandler(int cmd, void *buffer, int size)
             // The RPC payload is data, not a printf format string.
             if (size > 0)
                 printf("%.*s", size, (const char *)buffer);
+            break;
+        case NPM_STATUS:
+            pkoSetStatus(buffer, size);
             break;
         default:
             printf("unknown npm rpc call\n");

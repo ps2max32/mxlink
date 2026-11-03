@@ -48,6 +48,10 @@
 #define PKO_GSEXEC_CMD   0xbabe020b
 #define PKO_WRITE_MEM    0xbabe020c
 #define PKO_IOPEXCEP_CMD 0xbabe020d
+/* mxlink: answered by the IOP alone (UDP, to the sender), so it touches
+   neither the EE nor the host: connection: safe while a program runs */
+#define PKO_STATUS_CMD   0xbabe020e
+#define PKO_STATUS_RLY   0xbabe020f
 
 #define PKO_RPC_RESET    1
 #define PKO_RPC_EXECEE   2
@@ -207,6 +211,21 @@ typedef struct
 } __attribute__((packed)) pko_pkt_getstat_rly;
 
 ////
+
+typedef struct
+{
+    unsigned int cmd;
+    unsigned short len;
+    unsigned int version;     /* of this packet: 1 */
+    unsigned int state;       /* PKO_STATE_* */
+    unsigned int returns;     /* programs returned to mxlink since it booted */
+    int last_status;          /* the last one's exit status */
+    char path[PKO_MAX_PATH];  /* the running or last program */
+} __attribute__((packed)) pko_pkt_status_rly;
+
+#define PKO_STATE_STARTING 0 /* mxlink has not said ready yet */
+#define PKO_STATE_READY    1
+#define PKO_STATE_RUNNING  2
 
 typedef struct
 {
