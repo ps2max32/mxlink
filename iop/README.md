@@ -13,3 +13,7 @@ Licence: the PS2Link licence (Academic Free License 2.0), `LICENSE`.
 Built by `../Makefile` with ps2dev's IOP gcc and ps2sdk's IOP headers, IOP
 link script and `iopfixup` (`PS2MAX_IOP_BIN`, `PS2MAX_IOP_SDK` in
 `ps2max/envsetup.sh`).
+
+`chime.c` is mxlink's own module, not ps2link's: it resets the SPU2 and plays
+the boot sound, then unloads. The sound is `chime_blip.h`, made by
+`chime_blip.py`.
