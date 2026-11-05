@@ -44,7 +44,7 @@ void gfx_center(int font, float x, float y, const char *s, u32 colour, float sca
 #define MAX_GAMES 32
 
 struct game {
-  char dir[32], title[40], year[8], elf[32], args[64], desc[96];
+  char dir[32], title[40], year[8], type[24], elf[32], cover[32], args[64], desc[96];
 };
 
 extern struct game games[MAX_GAMES];
@@ -61,6 +61,8 @@ void dev_save(int dev);
    its PS2MAX directory. Returns 0: not yet, 1: scanned, ngames set; -1: the
    device's modules cannot be loaded. */
 int dev_step(int dev);
+/* The path of a file of a game, into out (128 bytes). */
+void game_file(char *out, int dev, const struct game *g, const char *file);
 void dev_restart(void);
 /* Ends the shell and starts the game: returns only if that fails. */
 int game_launch(int dev, const struct game *g);
@@ -68,6 +70,8 @@ int game_launch(int dev, const struct game *g);
 /* ---- cover.c: covers until there are images -------------------------------- */
 
 void cover_make(u32 i, const char *title);
+/* A cover file (tools/mk-cover.py). Returns 0, or -1. */
+int cover_load(u32 i, const char *path);
 /* Uploads the covers made (in the frame being built). */
 void cover_upload(u32 n);
 u64 cover_tex0(u32 i);

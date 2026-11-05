@@ -79,6 +79,8 @@ static void ini_line(struct game *g, const char *k, const char *v) {
   } f[] = {
       {"title", __builtin_offsetof(struct game, title), sizeof g->title},
       {"year", __builtin_offsetof(struct game, year), sizeof g->year},
+      {"type", __builtin_offsetof(struct game, type), sizeof g->type},
+      {"cover", __builtin_offsetof(struct game, cover), sizeof g->cover},
       {"elf", __builtin_offsetof(struct game, elf), sizeof g->elf},
       {"args", __builtin_offsetof(struct game, args), sizeof g->args},
       {"description", __builtin_offsetof(struct game, desc), sizeof g->desc},
@@ -93,11 +95,30 @@ static void ini_line(struct game *g, const char *k, const char *v) {
     }
 }
 
-static int read_ini(struct game *g, const char *path) {
-  static char b[1024];
+void game_file(char *out, int dev, const struct game *g, const char *file) {
+  cat(cat(cat(cat(cat(out, dev_root[dev]), "/PS2MAX/"), g->dir), "/"), file);
+}
+
+/* Without a game.ini a directory with <directory>.elf is a game too. */
+static int no_ini(int dev, struct game *g) {
+  char path[128];
+  cat(cat(g->elf, g->dir), ".elf");
+  game_file(path, dev, g, g->elf);
   int fd = mx_fio_open(path, MX_FIO_RDONLY);
   if (fd < 0)
     return -1;
+  mx_fio_close(fd);
+  cat(g->title, g->dir);
+  return 0;
+}
+
+static int read_ini(int dev, struct game *g) {
+  static char b[1024];
+  char path[128];
+  game_file(path, dev, g, "game.ini");
+  int fd = mx_fio_open(path, MX_FIO_RDONLY);
+  if (fd < 0)
+    return no_ini(dev, g);
   int n = mx_fio_read(fd, b, sizeof b - 1);
   mx_fio_close(fd);
   if (n <= 0)
@@ -134,7 +155,7 @@ static void sort_games(void) {
 }
 
 static void scan(int dev, int dir) {
-  char name[64], path[128];
+  char name[64];
   u32 size;
   ngames = 0;
   while (ngames < MAX_GAMES && mx_fio_dread(dir, name, sizeof name, &size) > 0) {
@@ -143,8 +164,7 @@ static void scan(int dev, int dir) {
     struct game *g = &games[ngames];
     memset(g, 0, sizeof *g);
     cat(g->dir, name);
-    cat(cat(cat(cat(path, dev_root[dev]), "/PS2MAX/"), name), "/game.ini");
-    if (read_ini(g, path) == 0)
+    if (read_ini(dev, g) == 0)
       ngames++;
   }
   sort_games();
@@ -179,9 +199,9 @@ int dev_step(int dev) {
 
 int game_launch(int dev, const struct game *g) {
   static char args[256], swap[48];
-  char *e = cat(cat(cat(cat(cat(args, dev_root[dev]), "/PS2MAX/"), g->dir), "/"), g->elf);
+  game_file(args, dev, g, g->elf);
+  char *e = args + strlen(args) + 1;
   int argc = 1;
-  e++;
   for (const char *s = g->args; *s;) {
     while (*s == ' ')
       s++;

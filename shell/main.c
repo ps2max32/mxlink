@@ -31,6 +31,17 @@ static s32 game_at(s32 p) {
   return g < 0 ? g + n : g;
 }
 
+static const char *back_path; /* mxlink: the program that came back */
+static int back_status;
+
+static int contains(const char *s, const char *what) {
+  u32 n = strlen(what);
+  for (; *s; s++)
+    if (!strncmp(s, what, n))
+      return 1;
+  return 0;
+}
+
 static void background(void) {
   gfx_rect(0, 0, SCR_W, 190, RGB(0x0C2028), RGB(0x1A4A52));
   gfx_rect(0, 190, SCR_W, 300, RGB(0x1A4A52), RGB(0x0A1E26));
@@ -162,7 +173,9 @@ static void info(void) {
   panel(70, 96, 570, 352);
   gfx_image(cover_tex0(sel), 90, 116, 240, 322, 0, 0, COVER_W, COVER_H, RGB(0x808080), RGB(0x808080));
   gfx_text(FONT_BIG, 260, 148, g->title, RGB(WHITE), 0.8f);
-  gfx_text(FONT_SMALL, 260, 174, g->year, RGB(ACCENT), 1);
+  float tx = gfx_text(FONT_SMALL, 260, 174, g->year, RGB(ACCENT), 1);
+  if (g->type[0])
+    gfx_text(FONT_SMALL, tx + (g->year[0] ? 14 : 0), 174, g->type, RGB(GREY), 1);
   paragraph(260, 208, 290, g->desc, RGB(GREY));
   mx_snprintf(path, sizeof path, "%s/PS2MAX/%s", dev_root[dev], g->dir);
   gfx_text(FONT_SMALL, 260, 290, path, RGB(GREY), 0.9f);
@@ -224,11 +237,16 @@ static void starting(void) {
 
 static void failed(void) {
   char m[64];
-  mx_snprintf(m, sizeof m, "%s kon niet starten", games[sel].title);
-  panel(100, 150, 540, 290);
+  mx_snprintf(m, sizeof m, "%s stopte met een fout", games[sel].title);
+  panel(90, 150, 550, 300);
   gfx_center(FONT_BIG, SCR_W / 2, 200, m, RGB(WHITE), 0.7f);
   mx_snprintf(m, sizeof m, "%s/PS2MAX/%s/%s", dev_root[dev], games[sel].dir, games[sel].elf);
-  gfx_center(FONT_SMALL, SCR_W / 2, 236, m, RGB(GREY), 0.9f);
+  gfx_center(FONT_SMALL, SCR_W / 2, 232, m, RGB(GREY), 0.9f);
+  mx_snprintf(m, sizeof m, "Exit-status %d", back_status);
+  gfx_center(FONT_SMALL, SCR_W / 2, 256, m, RGB(GREY), 0.9f);
+  float x = 296;
+  x = gfx_text(FONT_SMALL, x, 286, SYM_CIRCLE, RGB(0xF08878), 1) + 4;
+  gfx_text(FONT_SMALL, x, 286, "Terug", RGB(WHITE), 1);
 }
 
 static void draw(void) {
@@ -276,10 +294,30 @@ static void found(void) {
   sel = 0;
   place = 0;
   pos = 0;
-  for (u32 i = 0; i < ngames; i++)
-    cover_make(i, games[i].title);
+  for (u32 i = 0; i < ngames; i++) {
+    char path[128];
+    game_file(path, dev, &games[i], games[i].cover);
+    if (!games[i].cover[0] || cover_load(i, path) < 0)
+      cover_make(i, games[i].title);
+  }
   covers_new = ngames;
   screen = ngames ? S_MAIN : S_EMPTY;
+}
+
+/* The carousel on the game that ended, its failure on the screen. */
+static void came_back(void) {
+  if (!back_path)
+    return;
+  for (u32 i = 0; i < ngames; i++) {
+    char m[48];
+    mx_snprintf(m, sizeof m, "/PS2MAX/%s/", games[i].dir);
+    if (contains(back_path, m)) {
+      place = (s32)i, sel = i, pos = (float)i;
+      if (back_status)
+        screen = S_FAILED;
+    }
+  }
+  back_path = 0;
 }
 
 static void input(void) {
@@ -340,7 +378,14 @@ static int test_shot, test_right, test_screen = -1;
 static void arguments(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     const char *a = argv[i];
-    if (!strcmp(a, "dev=mx4sio"))
+    if (contains(a, ":") && i + 1 < argc) {
+      back_path = a;
+      const char *s = argv[++i];
+      int neg = *s == '-';
+      for (s += neg; *s >= '0' && *s <= '9'; s++)
+        back_status = back_status * 10 + *s - '0';
+      back_status = neg ? -back_status : back_status;
+    } else if (!strcmp(a, "dev=mx4sio"))
       dev = DEV_MX4SIO;
     else if (!strcmp(a, "dev=usb"))
       dev = DEV_USB;
@@ -377,6 +422,7 @@ int main(int argc, char **argv) {
         ngames = 0;
       if (r != 0) {
         found();
+        came_back();
         if (test_right)
           place = test_right, sel = (u32)game_at(place), pos = (float)place;
         if (test_screen >= 0 && ngames)

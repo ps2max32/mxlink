@@ -1,9 +1,10 @@
-/* Covers until the shell reads images: an abstract pattern from the title,
-   one of five, in a palette of one colour. T8, 128 x 176, in a 128 x 256
-   texture. */
+/* Covers: T8, 128 x 176, in a 128 x 256 texture. A game's cover file, read as
+   it is (the CLUT, then the texels: tools/mk-cover.py), or an abstract pattern
+   from the title, one of five, in a palette of one colour. */
 
 #include <mx/cpu.h>
 #include <mx/mx.h>
+#include <mx/sif.h>
 #include <mx/tex.h>
 
 #include "shell.h"
@@ -71,6 +72,17 @@ void cover_make(u32 i, const char *title) {
   }
   mx_dcache_writeback(pix[i], sizeof pix[i]);
   mx_dcache_writeback(clut[i], sizeof clut[i]);
+}
+
+int cover_load(u32 i, const char *path) {
+  int fd = mx_fio_open(path, MX_FIO_RDONLY);
+  if (fd < 0)
+    return -1;
+  int a = mx_fio_read(fd, clut[i], sizeof clut[i]), b = mx_fio_read(fd, pix[i], sizeof pix[i]);
+  mx_fio_close(fd);
+  mx_dcache_writeback(pix[i], sizeof pix[i]);
+  mx_dcache_writeback(clut[i], sizeof clut[i]);
+  return a == (int)sizeof clut[i] && b == (int)sizeof pix[i] ? 0 : -1;
 }
 
 void cover_upload(u32 n) {

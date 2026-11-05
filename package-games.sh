@@ -16,16 +16,16 @@ DATA=${DATA:-$PS2MAX/build/ps2-hw-test}
 ROOT=$1/PS2MAX
 SWAP_MIB=${SWAP_MIB:-64}
 
-# id|title|year|memory|elf under build/apps|data directories|description
+# id|title|year|type|elf under build/apps|data directories|description
 GAMES='
-quake1|Quake|1996|vm|quake1/quake1.elf|id1|First person shooter, on GLQuake.
-quake2|Quake II|1997|vm|quake2/quake2.elf|baseq2|First person shooter with a connected campaign.
-quake3|Quake III Arena|1999|vm|quake3/quake3.elf|baseq3|Arena shooter, on ioquake3.
-hexen2|Hexen II|1997|vm|hexen2/hexen2.elf|data1|Action role-playing game with four character classes.
-halflife|Half-Life|1998|vm|halflife/halflife.elf|hl|Story-driven shooter, on Xash3D.
-descent3|Descent 3|1999|vm|descent3-demo-vm/descent3.elf|d3|Six degrees of freedom through tunnels.
-duke3d|Duke Nukem 3D|1996|phys|duke3d/duke3d.elf|duke3d|Sprite-based shooter, on JFDuke3D.
-doom|Doom II|1994|phys|doom/doom.elf|doom|Classic shooter, on PrBoom+.
+quake1|Quake|1996|Shooter|quake1/quake1.elf|id1|First person shooter, on GLQuake.
+quake2|Quake II|1997|Shooter|quake2/quake2.elf|baseq2|First person shooter with a connected campaign.
+quake3|Quake III Arena|1999|Shooter|quake3/quake3.elf|baseq3|Arena shooter, on ioquake3.
+hexen2|Hexen II|1997|Action RPG|hexen2/hexen2.elf|data1|Action role-playing game with four character classes.
+halflife|Half-Life|1998|Shooter|halflife/halflife.elf|hl|Story-driven shooter, on Xash3D.
+descent3|Descent 3|1999|Shooter|descent3-demo-vm/descent3.elf|d3|Six degrees of freedom through tunnels.
+duke3d|Duke Nukem 3D|1996|Shooter|duke3d/duke3d.elf|duke3d|Sprite-based shooter, on JFDuke3D.
+doom|Doom II|1994|Shooter|doom/doom.elf|doom|Classic shooter, on PrBoom+.
 '
 
 copy() { # FAT and exFAT: no owners, links or exact times
@@ -34,7 +34,7 @@ copy() { # FAT and exFAT: no owners, links or exact times
 }
 
 mkdir -p "$ROOT"
-echo "$GAMES" | while IFS='|' read -r id title year memory elf dirs desc; do
+echo "$GAMES" | while IFS='|' read -r id title year type elf dirs desc; do
   [ -n "$id" ] || continue
   [ -f "$APPS/$elf" ] || { echo "$id: no $elf, skipped" >&2; continue; }
   [ -e "$DATA/$dirs" ] || { echo "$id: no data in $DATA/$dirs, skipped" >&2; continue; }
@@ -42,8 +42,13 @@ echo "$GAMES" | while IFS='|' read -r id title year memory elf dirs desc; do
   mkdir -p "$ROOT/$id"
   copy "$APPS/$elf" "$ROOT/$id/$id.elf"
   copy "$DATA/$dirs" "$ROOT/$id/"
-  printf '[game]\ntitle=%s\nyear=%s\nmemory=%s\nelf=%s.elf\ndescription=%s\n' \
-    "$title" "$year" "$memory" "$id" "$desc" > "$ROOT/$id/game.ini"
+  # a cover: COVERS/<game>.png or .jpg, made into cover.t8 (your own images)
+  cover=
+  for c in "${COVERS:-}/$id".png "${COVERS:-}/$id".jpg; do
+    [ -f "$c" ] && "$(dirname "$0")/tools/mk-cover.py" "$c" "$ROOT/$id/cover.t8" && cover=cover.t8
+  done
+  printf '[game]\ntitle=%s\nyear=%s\ntype=%s\nelf=%s.elf\ncover=%s\ndescription=%s\n' \
+    "$title" "$year" "$type" "$id" "$cover" "$desc" > "$ROOT/$id/game.ini"
 done
 
 # the system's swap file, for all games; made ahead, so paging on the card
