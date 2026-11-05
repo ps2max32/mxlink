@@ -216,11 +216,13 @@ typedef struct
 {
     unsigned int cmd;
     unsigned short len;
-    unsigned int version;     /* of this packet: 1 */
+    unsigned int version;     /* of this packet: 2 (1 ended after path) */
     unsigned int state;       /* PKO_STATE_* */
     unsigned int returns;     /* programs returned to mxlink since it booted */
     int last_status;          /* the last one's exit status */
     char path[PKO_MAX_PATH];  /* the running or last program */
+    char model[16];           /* the PS2's model (SCPH-70004), or "unknown" */
+    char rom[16];             /* its rom0:ROMVER (0200EC20040614), or "unknown" */
 } __attribute__((packed)) pko_pkt_status_rly;
 
 #define PKO_STATE_STARTING 0 /* mxlink has not said ready yet */

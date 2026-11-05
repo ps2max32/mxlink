@@ -8,6 +8,7 @@
 
 #include <types.h>
 #include <ioman.h>
+#include <cdvdman.h>
 #include <sysclib.h>
 #include <stdio.h>
 #include <thbase.h>
@@ -263,6 +264,58 @@ void pkoSetStatus(const void *data, int size)
     status.path[PKO_MAX_PATH - 1] = '\0';
 }
 
+// What this PS2 is: read once, before a program can use the CD/DVD controller.
+static char model[16] = "unknown";
+static char rom[16] = "unknown";
+
+// The model, by the controller's command 0x17 in two halves, as sceCdRM. Not
+// sceCdRM itself: rom0:CDVDMAN does not export it (only XCDVDMAN does), and
+// an import it lacks would stop this module loading. Below controller version
+// 0x10500 it is not asked, as sceCdRM does not ask either. The name is what
+// the PS2 has stored, not a hardware identity.
+static void readModel(void)
+{
+    static const char mv = 0, halves[2] = {0, 8};
+    unsigned char out[16];
+    char name[16];
+    int i, n;
+
+    if (sceCdApplySCmd(0x03, &mv, 1, out) != 1 ||
+        (out[3] | out[2] << 8 | out[1] << 16) < 0x10500)
+        return;
+    for (i = 0; i < 2; i++) {
+        if (sceCdApplySCmd(0x17, &halves[i], 1, out) != 1 || out[0] != 0)
+            return;
+        memcpy(&name[i * 8], &out[1], 8);
+    }
+    for (n = 0; n < 15 && name[n] > ' ' && name[n] < 0x7f; n++)
+        ;
+    if (n == 0)
+        return;
+    memcpy(model, name, n);
+    model[n] = '\0';
+}
+
+static void readRom(void)
+{
+    char v[14];
+    int fd = open("rom0:ROMVER", FIO_O_RDONLY);
+
+    if (fd < 0)
+        return;
+    if (read(fd, v, sizeof(v)) == sizeof(v)) {
+        memcpy(rom, v, sizeof(v));
+        rom[sizeof(v)] = '\0';
+    }
+    close(fd);
+}
+
+void pkoReadIdentity(void)
+{
+    readModel();
+    readRom();
+}
+
 static void
 pkoStatus(int sock, struct sockaddr_in *to, int tolen)
 {
@@ -270,11 +323,13 @@ pkoStatus(int sock, struct sockaddr_in *to, int tolen)
 
     rly.cmd = htonl(PKO_STATUS_RLY);
     rly.len = htons(sizeof(rly));
-    rly.version = htonl(1);
+    rly.version = htonl(2);
     rly.state = htonl(status.state);
     rly.returns = htonl(status.returns);
     rly.last_status = htonl(status.last_status);
     memcpy(rly.path, status.path, PKO_MAX_PATH);
+    memcpy(rly.model, model, sizeof(rly.model));
+    memcpy(rly.rom, rom, sizeof(rly.rom));
     sendto(sock, &rly, sizeof(rly), 0, (struct sockaddr *)to, tolen);
 }
 

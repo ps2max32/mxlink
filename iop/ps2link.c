@@ -31,6 +31,7 @@ int _start(int argc, char **argv)
 
     sceCdInit(1);
     sceCdStop();
+    pkoReadIdentity();
 
     SifInitRpc(0);
 

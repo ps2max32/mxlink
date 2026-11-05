@@ -16,4 +16,6 @@ unsigned int pkoSendSifCmd(unsigned int cmd, void *src, unsigned int len);
 int cmdHandlerInit(void);
 void pkoSetStatus(const void *data, int size);
 
+void pkoReadIdentity(void);
+
 #endif /* CMD_HANDLER_H */

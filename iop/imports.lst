@@ -27,6 +27,7 @@ thbase_IMPORTS_end
 ioman_IMPORTS_start
 I_open
 I_close
+I_read
 I_AddDrv
 I_DelDrv
 ioman_IMPORTS_end
@@ -72,6 +73,7 @@ modload_IMPORTS_end
 cdvdman_IMPORTS_start
 I_sceCdInit
 I_sceCdStop
+I_sceCdApplySCmd
 cdvdman_IMPORTS_end
 
 ioptrap_IMPORTS_start
