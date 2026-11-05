@@ -186,6 +186,8 @@ pkoPowerOff()
 }
 
 //////////////////////////////////////////////////////////////////////////
+static void pkoStatusStarting(void);
+
 static void
 pkoReset(char *buf, int len)
 {
@@ -196,6 +198,7 @@ pkoReset(char *buf, int len)
         return;
     }
 
+    pkoStatusStarting();
     printf("unmounting\n");
     fsysUnmount();
     printf("unmounted\n");
@@ -245,6 +248,12 @@ static struct
     int last_status;
     char path[PKO_MAX_PATH];
 } status;
+
+// A reset: not ready from here on, the EE may not be told in time.
+static void pkoStatusStarting(void)
+{
+    status.state = 0;
+}
 
 void pkoSetStatus(const void *data, int size)
 {
