@@ -33,6 +33,8 @@ static s32 game_at(s32 p) {
 
 static const char *back_path; /* mxlink: the program that came back */
 static int back_status;
+static struct mx_crash crash;
+static int crashed;
 
 static int contains(const char *s, const char *what) {
   u32 n = strlen(what);
@@ -235,7 +237,47 @@ static void starting(void) {
   bar(220, 350, 420, (float)(ticks - start_at) / 20);
 }
 
+/* The crash report, as far as it fits: what the host's symbolize.py needs. */
+static void failed_crash(void) {
+  char m[96];
+  mx_snprintf(m, sizeof m, "%s %s", games[sel].title, "is gecrasht");
+  panel(40, 96, 600, 352);
+  gfx_center(FONT_BIG, SCR_W / 2, 140, m, RGB(WHITE), 0.7f);
+  mx_snprintf(m, sizeof m, "%s op %08x, adres %08x", crash.what, crash.epc, crash.badvaddr);
+  gfx_center(FONT_SMALL, SCR_W / 2, 172, m, RGB(WHITE), 0.9f);
+  float y = 196;
+  /* the note: on two lines, split at a space */
+  if (crash.note) {
+    u32 n = strlen(crash.note), cut = n;
+    if (n > 64)
+      for (cut = 64; cut && crash.note[cut] != ' '; cut--)
+        ;
+    mx_snprintf(m, sizeof m, "%.*s", (int)cut, crash.note);
+    gfx_center(FONT_SMALL, SCR_W / 2, y, m, RGB(GREY), 0.8f);
+    y += 18;
+    if (cut < n) {
+      gfx_center(FONT_SMALL, SCR_W / 2, y, crash.note + cut + 1, RGB(GREY), 0.8f);
+      y += 18;
+    }
+  }
+  y += 6;
+  for (u32 i = 0; i < crash.ntrace; i += 6) {
+    u32 k = 0;
+    for (u32 j = i; j < i + 6 && j < crash.ntrace; j++)
+      k += (u32)mx_snprintf(m + k, sizeof m - k, "%08x ", crash.trace[j]);
+    gfx_center(FONT_SMALL, SCR_W / 2, y, m, RGB(GREY), 0.8f);
+    y += 18;
+  }
+  float x = 296;
+  x = gfx_text(FONT_SMALL, x, 336, SYM_CIRCLE, RGB(0xF08878), 1) + 4;
+  gfx_text(FONT_SMALL, x, 336, "Terug", RGB(WHITE), 1);
+}
+
 static void failed(void) {
+  if (crashed) {
+    failed_crash();
+    return;
+  }
   char m[64];
   mx_snprintf(m, sizeof m, "%s stopte met een fout", games[sel].title);
   panel(90, 150, 550, 300);
@@ -313,8 +355,10 @@ static void came_back(void) {
     mx_snprintf(m, sizeof m, "/PS2MAX/%s/", games[i].dir);
     if (contains(back_path, m)) {
       place = (s32)i, sel = i, pos = (float)i;
-      if (back_status)
+      if (back_status) {
+        crashed = mx_crash_last(&crash);
         screen = S_FAILED;
+      }
     }
   }
   back_path = 0;
