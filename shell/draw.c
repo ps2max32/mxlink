@@ -52,6 +52,11 @@ int gfx_init(void) {
 
 void gfx_stop(void) { mx_frame_stop(); }
 
+int gfx_restart(void) {
+  font_sent = 0;
+  return gfx_init();
+}
+
 u32 gfx_alloc(u32 blocks, int page) {
   if (page)
     vram_next = (vram_next + 31) & ~31u;

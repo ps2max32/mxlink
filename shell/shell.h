@@ -13,6 +13,8 @@
 
 int gfx_init(void);
 void gfx_stop(void);
+/* after a game, which had the GS: the picture set up again, the font sent again */
+int gfx_restart(void);
 /* Blocks of GS memory from the first free one: n, page aligned or not. */
 u32 gfx_alloc(u32 blocks, int page);
 void gfx_begin(void);

@@ -1,15 +1,21 @@
 /* mxloader's shell: a carousel of the games on the device in use. Runs as an
    ordinary program on what mxlink offers; a game starts by mx_loader_launch,
-   with the IOP as it is, and mxlink starts the shell again after it. */
+   with the IOP as it is. A kernel of version 9 keeps the shell meanwhile and
+   the call returns when the game ends; an older one starts it again. */
 
 #include <mx/debug.h>
 #include <mx/mx.h>
 #include <mx/hires.h>
+#include <mx/loader.h>
 #include <mx/pad.h>
 #include <mx/sif.h>
 #include <mx/string.h>
 
 #include "shell.h"
+
+/* mxlink keeps the shell while a game runs (docs/mx-os-plan.md, step 2c):
+   its core at a run of its own, with this core heap */
+MX_CORE_HEAP(512 << 10);
 
 enum { S_SEARCH, S_MAIN, S_INFO, S_DEVICE, S_EMPTY, S_START, S_FAILED };
 
@@ -487,9 +493,22 @@ int main(int argc, char **argv) {
     pos += ((float)place - pos) * 0.2f;
     draw();
     if (screen == S_START && ticks - start_at > 20) {
-      game_launch(dev, &games[sel]);
-      /* the picture is stopped: the failure shows on mxlink's screen */
-      mx_exit(1);
+      static char path[128];
+      game_file(path, dev, &games[sel], games[sel].elf);
+      int st = game_launch(dev, &games[sel]);
+      /* mxlink kept the shell while the game ran (its core at a run of its
+         own: MX_CORE_HEAP), or the game did not start. The game had the GS
+         and the pad's ports: both set up again, then the game's end shown
+         as after a restart */
+      if (gfx_restart() < 0)
+        mx_exit(1);
+      pad_on = mx_pad_init() >= 0;
+      covers_new = ngames;
+      screen = S_MAIN;
+      back_path = path;
+      back_status = st;
+      came_back();
+      continue;
     }
     if (test_shot && shot_at && ticks >= shot_at) {
       int r = mx_hires_save_tga("host:shell.tga");
