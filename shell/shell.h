@@ -50,7 +50,7 @@ struct game {
 extern struct game games[MAX_GAMES];
 extern u32 ngames;
 
-enum { DEV_USB, DEV_MX4SIO, DEV_HDD, NDEVS };
+enum { DEV_USB, DEV_MX4SIO, DEV_HDD, DEV_HOST, NDEVS };
 extern const char *const dev_label[NDEVS];
 /* "usb0:" */
 extern const char *const dev_root[NDEVS];

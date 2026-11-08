@@ -18,16 +18,19 @@
 struct game games[MAX_GAMES];
 u32 ngames;
 
-const char *const dev_label[NDEVS] = {"USB", "MX4SIO", "HDD"};
-const char *const dev_root[NDEVS] = {"usb0:", "mx4sio0:", "ata0:"};
+/* host: is ps2client's directory on the PC (ps2client listen, or a run): no
+   drivers, and no answer at once when no ps2client is connected */
+const char *const dev_label[NDEVS] = {"USB", "MX4SIO", "HDD", "HOST"};
+const char *const dev_root[NDEVS] = {"usb0:", "mx4sio0:", "ata0:", "host:"};
 
 /* the file, and the name the IOP knows the module by */
 static const char *const mods[NDEVS][4][2] = {
     {{"bdm", "bdm"}, {"bdmfs_fatfs", "bdmff"}, {"usbd", "USB_driver"}, {"usbmass_bd", "usbmass_bd"}},
     {{"bdm", "bdm"}, {"bdmfs_fatfs", "bdmff"}, {"mx4sio_bd", "mx4sio"}, {0, 0}},
     {{"bdm", "bdm"}, {"bdmfs_fatfs", "bdmff"}, {"mxata", "mxata"}, {0, 0}},
+    {{0, 0}, {0, 0}, {0, 0}, {0, 0}},
 };
-static const char *const dev_cfg[NDEVS] = {"usb\n", "mx4sio\n", "hdd\n"};
+static const char *const dev_cfg[NDEVS] = {"usb\n", "mx4sio\n", "hdd\n", "host\n"};
 
 static char *cat(char *d, const char *s) {
   while (*s)
@@ -43,7 +46,9 @@ int dev_load_saved(void) {
     return DEV_USB;
   int n = mx_fio_read(fd, b, sizeof b - 1);
   mx_fio_close(fd);
-  return n > 0 && b[0] == 'm' ? DEV_MX4SIO : n > 0 && b[0] == 'h' ? DEV_HDD : DEV_USB;
+  if (n > 1 && b[0] == 'h')
+    return b[1] == 'o' ? DEV_HOST : DEV_HDD;
+  return n > 0 && b[0] == 'm' ? DEV_MX4SIO : DEV_USB;
 }
 
 void dev_save(int dev) {

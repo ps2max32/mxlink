@@ -188,7 +188,7 @@ static void info(void) {
 }
 
 static void device(void) {
-  panel(170, 120, 470, 364);
+  panel(170, 120, 470, 408);
   gfx_text(FONT_BIG, 192, 164, "Kies een apparaat", RGB(WHITE), 0.7f);
   for (int i = 0; i < NDEVS; i++) {
     float y = 186 + (float)i * 44;
@@ -197,10 +197,10 @@ static void device(void) {
     gfx_text(FONT_SMALL, 200, y + 26, dev_label[i], RGB(WHITE), 1);
     gfx_text(FONT_SMALL, 372, y + 26, dev_root[i], RGB(i == dev ? ACCENT : GREY), 1);
   }
-  float x = gfx_text(FONT_SMALL, 200, 344, SYM_CROSS, RGB(0x88B0F0), 1) + 4;
-  x = gfx_text(FONT_SMALL, x, 344, "Kiezen", RGB(WHITE), 1) + 30;
-  x = gfx_text(FONT_SMALL, x, 344, SYM_CIRCLE, RGB(0xF08878), 1) + 4;
-  gfx_text(FONT_SMALL, x, 344, "Terug", RGB(WHITE), 1);
+  float x = gfx_text(FONT_SMALL, 200, 388, SYM_CROSS, RGB(0x88B0F0), 1) + 4;
+  x = gfx_text(FONT_SMALL, x, 388, "Kiezen", RGB(WHITE), 1) + 30;
+  x = gfx_text(FONT_SMALL, x, 388, SYM_CIRCLE, RGB(0xF08878), 1) + 4;
+  gfx_text(FONT_SMALL, x, 388, "Terug", RGB(WHITE), 1);
 }
 
 static void bar(float x0, float y, float x1, float part) {
@@ -219,7 +219,10 @@ static void searching(void) {
 static void empty(void) {
   char m[64];
   gfx_center(FONT_BIG, SCR_W / 2, 200, "Geen spellen gevonden", RGB(WHITE), 0.8f);
-  mx_snprintf(m, sizeof m, "Zet spellen in de map PS2MAX op %s", dev_label[dev]);
+  if (dev == DEV_HOST)
+    mx_snprintf(m, sizeof m, "Op de pc, in de map met PS2MAX: ps2client listen");
+  else
+    mx_snprintf(m, sizeof m, "Zet spellen in de map PS2MAX op %s", dev_label[dev]);
   gfx_center(FONT_SMALL, SCR_W / 2, 236, m, RGB(GREY), 1);
   float x = 180;
   x = gfx_text(FONT_SMALL, x, 396, SYM_CROSS, RGB(0x88B0F0), 1) + 4;
@@ -417,7 +420,7 @@ static void input(void) {
   }
 }
 
-/* Arguments, for tests from the host: dev=usb|mx4sio|hdd, right=<n> (that many games
+/* Arguments, for tests from the host: dev=usb|mx4sio|hdd|host, right=<n> (that many games
    to the right), info, device, shot (the picture to host:shell.tga, then the
    end). */
 static int test_shot, test_right, test_screen = -1;
@@ -437,6 +440,8 @@ static void arguments(int argc, char **argv) {
       dev = DEV_USB;
     else if (!strcmp(a, "dev=hdd"))
       dev = DEV_HDD;
+    else if (!strcmp(a, "dev=host"))
+      dev = DEV_HOST;
     else if (!strcmp(a, "shot"))
       test_shot = 1;
     else if (!strcmp(a, "info"))
