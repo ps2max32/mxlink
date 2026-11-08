@@ -18,14 +18,16 @@
 struct game games[MAX_GAMES];
 u32 ngames;
 
-const char *const dev_label[NDEVS] = {"USB", "MX4SIO"};
-const char *const dev_root[NDEVS] = {"usb0:", "mx4sio0:"};
+const char *const dev_label[NDEVS] = {"USB", "MX4SIO", "HDD"};
+const char *const dev_root[NDEVS] = {"usb0:", "mx4sio0:", "ata0:"};
 
 /* the file, and the name the IOP knows the module by */
 static const char *const mods[NDEVS][4][2] = {
     {{"bdm", "bdm"}, {"bdmfs_fatfs", "bdmff"}, {"usbd", "USB_driver"}, {"usbmass_bd", "usbmass_bd"}},
     {{"bdm", "bdm"}, {"bdmfs_fatfs", "bdmff"}, {"mx4sio_bd", "mx4sio"}, {0, 0}},
+    {{"bdm", "bdm"}, {"bdmfs_fatfs", "bdmff"}, {"mxata", "mxata"}, {0, 0}},
 };
+static const char *const dev_cfg[NDEVS] = {"usb\n", "mx4sio\n", "hdd\n"};
 
 static char *cat(char *d, const char *s) {
   while (*s)
@@ -41,14 +43,14 @@ int dev_load_saved(void) {
     return DEV_USB;
   int n = mx_fio_read(fd, b, sizeof b - 1);
   mx_fio_close(fd);
-  return n > 0 && b[0] == 'm' ? DEV_MX4SIO : DEV_USB;
+  return n > 0 && b[0] == 'm' ? DEV_MX4SIO : n > 0 && b[0] == 'h' ? DEV_HDD : DEV_USB;
 }
 
 void dev_save(int dev) {
   int fd = mx_fio_open(CONFIG, MX_FIO_WRONLY | MX_FIO_CREAT | MX_FIO_TRUNC);
   if (fd < 0)
     return;
-  mx_fio_write(fd, dev == DEV_MX4SIO ? "mx4sio\n" : "usb\n", dev == DEV_MX4SIO ? 7 : 4);
+  mx_fio_write(fd, dev_cfg[dev], strlen(dev_cfg[dev]));
   mx_fio_close(fd);
 }
 

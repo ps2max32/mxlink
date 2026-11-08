@@ -188,7 +188,7 @@ static void info(void) {
 }
 
 static void device(void) {
-  panel(170, 120, 470, 320);
+  panel(170, 120, 470, 364);
   gfx_text(FONT_BIG, 192, 164, "Kies een apparaat", RGB(WHITE), 0.7f);
   for (int i = 0; i < NDEVS; i++) {
     float y = 186 + (float)i * 44;
@@ -197,10 +197,10 @@ static void device(void) {
     gfx_text(FONT_SMALL, 200, y + 26, dev_label[i], RGB(WHITE), 1);
     gfx_text(FONT_SMALL, 372, y + 26, dev_root[i], RGB(i == dev ? ACCENT : GREY), 1);
   }
-  float x = gfx_text(FONT_SMALL, 200, 300, SYM_CROSS, RGB(0x88B0F0), 1) + 4;
-  x = gfx_text(FONT_SMALL, x, 300, "Kiezen", RGB(WHITE), 1) + 30;
-  x = gfx_text(FONT_SMALL, x, 300, SYM_CIRCLE, RGB(0xF08878), 1) + 4;
-  gfx_text(FONT_SMALL, x, 300, "Terug", RGB(WHITE), 1);
+  float x = gfx_text(FONT_SMALL, 200, 344, SYM_CROSS, RGB(0x88B0F0), 1) + 4;
+  x = gfx_text(FONT_SMALL, x, 344, "Kiezen", RGB(WHITE), 1) + 30;
+  x = gfx_text(FONT_SMALL, x, 344, SYM_CIRCLE, RGB(0xF08878), 1) + 4;
+  gfx_text(FONT_SMALL, x, 344, "Terug", RGB(WHITE), 1);
 }
 
 static void bar(float x0, float y, float x1, float part) {
@@ -398,8 +398,10 @@ static void input(void) {
       screen = S_START, start_at = ticks;
     break;
   case S_DEVICE:
-    if (p & (MX_PAD_UP | MX_PAD_DOWN))
-      dev_sel = !dev_sel;
+    if (p & MX_PAD_UP)
+      dev_sel = (dev_sel + NDEVS - 1) % NDEVS;
+    if (p & MX_PAD_DOWN)
+      dev_sel = (dev_sel + 1) % NDEVS;
     if (p & MX_PAD_CIRCLE)
       screen = ngames ? S_MAIN : S_EMPTY;
     if (p & MX_PAD_CROSS) {
@@ -415,7 +417,7 @@ static void input(void) {
   }
 }
 
-/* Arguments, for tests from the host: dev=mx4sio, right=<n> (that many games
+/* Arguments, for tests from the host: dev=usb|mx4sio|hdd, right=<n> (that many games
    to the right), info, device, shot (the picture to host:shell.tga, then the
    end). */
 static int test_shot, test_right, test_screen = -1;
@@ -433,6 +435,8 @@ static void arguments(int argc, char **argv) {
       dev = DEV_MX4SIO;
     else if (!strcmp(a, "dev=usb"))
       dev = DEV_USB;
+    else if (!strcmp(a, "dev=hdd"))
+      dev = DEV_HDD;
     else if (!strcmp(a, "shot"))
       test_shot = 1;
     else if (!strcmp(a, "info"))
@@ -469,7 +473,7 @@ int main(int argc, char **argv) {
         came_back();
         if (test_right)
           place = test_right, sel = (u32)game_at(place), pos = (float)place;
-        if (test_screen >= 0 && ngames)
+        if (test_screen >= 0 && (ngames || test_screen == S_DEVICE))
           screen = test_screen, start_at = ticks;
         shot_at = ticks + 90;
       }
