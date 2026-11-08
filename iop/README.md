@@ -1,4 +1,4 @@
-# mxlink's IOP modules
+# mxlink's IOP module
 
 ## ps2link.irx
 
@@ -12,18 +12,11 @@ copy and changes it; the fork is not updated from here. Changed so far: the stat
 
 Licence: the PS2Link licence (Academic Free License 2.0), `LICENSE`.
 
-## chime.irx
-
-mxlink's own module, not ps2link's (`chime.c`): it resets
-the SPU2 and plays the boot sound, then unloads. The sound is `chime_blip.h`,
-made by `chime_blip.py`. Its start result reports what it saw, and mxlink logs
-that.
-
 ## Building
 
-Both are built by `../Makefile` with maxsdk's IOP toolchain
+It is built by `../Makefile` with maxsdk's IOP toolchain
 (`libs/maxsdk/iop/iop.mk`): the feature clang for the IOP target
 (`--target=mipsel-none-irx`), which links with `ld.lld --irx` into the IRX and
-makes the import tables for what the modules call, from the ILB files of
+makes the import tables for what the module calls, from the ILB files of
 maxsdk's modules and of ps2sdk's IOP headers (`PS2MAX_IOP_SDK` in
 `ps2max/envsetup.sh`). `irx_imports.h` (from ps2link) only includes headers.
