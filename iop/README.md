@@ -21,7 +21,7 @@ that.
 
 ## Building
 
-Both are built by `../Makefile` with the feature clang (`-mcpu=r3000a`) and
-ld.lld with maxsdk's IOP link script (`libs/maxsdk/iop/irx.ld`, the tables
-through `libs/maxsdk/iop/irx_clang.h`), then ps2sdk's `iopfixup`
-(`PS2MAX_IOP_SDK` in `ps2max/envsetup.sh`).
+Both are built by `../Makefile` with the feature clang for the IOP target
+(`--target=mipsel-none-irx`, the tables through
+`libs/maxsdk/iop/irx_clang.h`), which links with `ld.lld --irx` into the IRX,
+and ps2sdk's IOP headers (`PS2MAX_IOP_SDK` in `ps2max/envsetup.sh`).
