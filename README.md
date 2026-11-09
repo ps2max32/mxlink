@@ -8,8 +8,8 @@ Now this repo holds its IOP module, `ps2link.irx` (`iop/`, see
 `iop/README.md`), which the kernel ([mxos](https://github.com/ps2max32/mxos))
 loads at the boot from `mc0:/MXOS`, and its EE side as an app, a service beside
 the games (`ee/`, step 2e of the mx OS plan, maxsdk's `docs/mx-os-apps-plan.md`).
-The app serves `execee` and the ping so far; the kernel still serves the rest
-(`ee/cmd.c` there), and everything while the app is not running.
+The app serves ps2client's commands; the kernel keeps the reset and the IOP's
+exception (`ee/cmd.c` there), and serves everything while the app is not running.
 ```
 make      # build/apps/mxlink/ps2link.irx
 ```
@@ -28,9 +28,11 @@ it has no screen of its own. Built as `build/apps/mxlink/mxlink-app.elf`; on the
 the boot and the shell after it (`make -C apps/mxos shell` puts both into the card's files).
 
 - ps2client's commands, which the kernel passes on to the port of the host link's IOP
-  channel (`MX_IOP_CHANNEL_HOST`): `execee` and `dumpreg` (ps2client's ping). For them the
-  shell in front ends (the text screen after it until a reset); another program in front
-  refuses them. ps2link.irx still sends them to the kernel by SIF DMA;
+  channel (`MX_IOP_CHANNEL_HOST`): `execee`, `dumpreg` (ps2client's ping), and from mx-kernel
+  21 `dumpmem` and `writemem` (physical memory, `mx_phys_read`, `mx_phys_write`), `gsexec`,
+  `startvu` and `stopvu`. For them the shell in front ends (the text screen after it until a
+  reset); another program in front refuses them. ps2link.irx still sends them to the kernel by
+  SIF DMA;
 - the kernel's events: the end of the host's program, with the runner's end marker;
 - its port `mxlink`: requests from other processes (`status`);
 - the log, read as the host's console will be.
@@ -40,7 +42,8 @@ threads restarts the kernel: the kernel serves the host until the app is back af
 Started by the host (`execee host:mxlink-app.elf marker`), the app prints the end marker once it
 is the service. With an older kernel (18, 19) it becomes a service that does nothing, so that
 the shell comes. `ee/tests/status.c` (`mxlink-status.elf`) runs in front of it. On PCSX2 (no
-host link there; `test-stop` ends the shell in front after 3 s, as for a command):
+host link there; `test-stop [program]` ends the shell in front after 3 s, as for a command,
+and starts the program then):
 
     MXSERVICE="host:mxlink-app.elf" MXLOAD="host:mxlink-status.elf" run.sh <the emu kernel>
     MXSERVICE="host:mxlink-app.elf test-stop" MXLOAD="host:MXSHELL.ELF console" run.sh <the emu kernel>

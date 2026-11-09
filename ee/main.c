@@ -5,9 +5,11 @@
    as its console, and the host's console; no screen of its own.
 
    - ps2client's commands, which the kernel passes on by the host link's IOP
-     channel (MX_IOP_CHANNEL_HOST): execee and dumpreg (ps2client's ping) so
-     far; the kernel keeps the others, and serves all of them while this
-     service is not there (a game that took all memory, a ps2sdk program);
+     channel (MX_IOP_CHANNEL_HOST): execee, dumpreg (ps2client's ping), and
+     from kernel version 21 dumpmem, writemem, gsexec, startvu and stopvu;
+     the kernel keeps the reset and the IOP's exception, and serves all of
+     them while this service is not there (a game that took all memory, a
+     ps2sdk program);
    - the kernel's events: the end of a program the host started, with the
      test end marker for the host's runner (the kernel prints none while a
      service is beside);
@@ -18,6 +20,9 @@
    end marker itself once it is the service, so that the run ends there. */
 
 #include <mx/debug.h>
+#include <mx/hw/formats.h>
+#include <mx/mem.h>
+#include <mx/cpu.h>
 #include <mx/hw/regs.h>
 #include <mx/iop.h>
 #include <mx/kernel.h>
@@ -39,11 +44,17 @@ static volatile int host_child;
 /* ---- ps2client's commands (apps/mxlink/iop/hostlink.h) ------------------ */
 
 #define PKO_EXECEE_CMD 0xbabe0203u
+#define PKO_DUMP_MEM 0xbabe0207u
+#define PKO_START_VU 0xbabe0208u
+#define PKO_STOP_VU 0xbabe0209u
 #define PKO_DUMP_REG 0xbabe020au
+#define PKO_GSEXEC_CMD 0xbabe020bu
+#define PKO_WRITE_MEM 0xbabe020cu
 #define PKO_MAX_PATH 256
 #define HDR 6 /* cmd (4 bytes), len (2), packed, big-endian */
 
 static u32 be32(const u8 *p) { return (u32)p[0] << 24 | (u32)p[1] << 16 | (u32)p[2] << 8 | p[3]; }
+static u16 be16(const u8 *p) { return (u16)(p[0] << 8 | p[1]); }
 
 /* the program in front: its process, 0 none; *shell when it is the shell */
 static int front(int *shell) {
@@ -176,6 +187,100 @@ static void dump_reg(const u8 *p) {
   mx_fio_close(fd);
 }
 
+/* dumpmem and writemem: offset, size, path; the EE's physical memory, as the
+   kernel sees it (kernel version 21) */
+static u8 data_buf[8 << 10] MX_ALIGNED(64);
+
+static void dump_mem(const u8 *p) {
+  u32 off = be32(p + HDR), size = be32(p + HDR + 4);
+  char path[PKO_MAX_PATH];
+  path_of(path, (const char *)p + HDR + 8);
+  if (front_free("dumpmem") < 0)
+    return;
+  mx_printf("mxlink: dumpmem %08x, %u bytes -> %s\n", off, size, path);
+  int fd = mx_fio_open(path, MX_FIO_WRONLY | MX_FIO_CREAT | MX_FIO_TRUNC);
+  if (fd < 0) {
+    mx_printf("mxlink: dumpmem: cannot open %s\n", path);
+    return;
+  }
+  for (u32 done = 0; done < size;) {
+    u32 n = size - done < sizeof data_buf ? size - done : sizeof data_buf;
+    if (mx_phys_read(off + done, data_buf, n) < 0 || mx_fio_write(fd, data_buf, n) < 0) {
+      mx_printf("mxlink: dumpmem: failed at %08x\n", off + done);
+      break;
+    }
+    done += n;
+  }
+  mx_fio_close(fd);
+}
+
+static void write_mem(const u8 *p) {
+  u32 off = be32(p + HDR), size = be32(p + HDR + 4);
+  char path[PKO_MAX_PATH];
+  path_of(path, (const char *)p + HDR + 8);
+  if (front_free("writemem") < 0)
+    return;
+  mx_printf("mxlink: writemem %s -> %08x, %u bytes\n", path, off, size);
+  int fd = mx_fio_open(path, MX_FIO_RDONLY);
+  if (fd < 0) {
+    mx_printf("mxlink: writemem: cannot open %s\n", path);
+    return;
+  }
+  for (u32 done = 0; done < size;) {
+    u32 n = size - done < sizeof data_buf ? size - done : sizeof data_buf;
+    int r = mx_fio_read(fd, data_buf, n);
+    if (r <= 0 || mx_phys_write(off + done, data_buf, (u32)r) < 0) {
+      mx_printf("mxlink: writemem: failed at %08x\n", off + done);
+      break;
+    }
+    done += (u32)r;
+  }
+  mx_fio_close(fd);
+}
+
+/* gsexec: size, path: up to 128 bytes of GIF packet sent by PATH3 */
+static void gs_exec(const u8 *p) {
+  static u8 gif[128] MX_ALIGNED(64);
+  u32 size = be16(p + HDR);
+  char path[PKO_MAX_PATH];
+  path_of(path, (const char *)p + HDR + 2);
+  if (front_free("gsexec") < 0)
+    return;
+  int fd = mx_fio_open(path, MX_FIO_RDONLY);
+  if (fd < 0) {
+    mx_printf("mxlink: gsexec: cannot open %s\n", path);
+    return;
+  }
+  int n = mx_fio_read(fd, gif, sizeof gif);
+  mx_fio_close(fd);
+  if (n < 0)
+    return;
+  if (size > sizeof gif)
+    size = sizeof gif;
+  mx_printf("mxlink: gsexec %s, %u bytes\n", path, size);
+  mx_dcache_writeback(gif, sizeof gif);
+  MX_R32(MX_DMA_GIF_QWC) = size / 16;
+  MX_R32(MX_DMA_GIF_MADR) = mx_paddr_of(gif).v;
+  MX_R32(MX_DMA_GIF_CHCR) = 0x101;
+  for (int i = 0; i < 1000 && (MX_R32(MX_DMA_GIF_CHCR) & 0x100); i++)
+    mx_sleep_us(100);
+}
+
+/* ctc2 $8, vi28 (FBRST) as a word: the assembler takes it only with -mvu0 */
+static void fbrst(u32 v) {
+  __asm__ volatile("move $8, %0\n\t.word 0x48c8e000\n\tsync.p" : : "r"(v) : "$8", "memory");
+}
+
+/* startvu, stopvu: the VU's reset or force break, and its VIF's */
+static void vu(const u8 *p, int start) {
+  u32 vpu = be32(p + HDR);
+  if (vpu > 1)
+    return;
+  mx_printf("mxlink: %s VU%u\n", start ? "startvu" : "stopvu", vpu);
+  fbrst((start ? 2u : 1u) << (vpu * 8));
+  MX_R32(vpu ? 0x10003C10u : 0x10003810u) = start ? 8 : 2;
+}
+
 /* the kernel's packets of the host link, one at a time */
 static void on_host(void *arg) {
   (void)arg;
@@ -186,7 +291,7 @@ static void on_host(void *arg) {
       return;
     u32 len = m.len < MX_MSG_MAX ? m.len : MX_MSG_MAX;
     buf[len] = 0;
-    if (m.from != 0 || len < HDR + 4)
+    if (m.from != 0 || len < HDR + 3)
       continue;
     host_cmds++;
     switch (be32(buf)) {
@@ -195,6 +300,19 @@ static void on_host(void *arg) {
       break;
     case PKO_DUMP_REG:
       dump_reg(buf);
+      break;
+    case PKO_DUMP_MEM:
+      dump_mem(buf);
+      break;
+    case PKO_WRITE_MEM:
+      write_mem(buf);
+      break;
+    case PKO_GSEXEC_CMD:
+      gs_exec(buf);
+      break;
+    case PKO_START_VU:
+    case PKO_STOP_VU:
+      vu(buf, be32(buf) == PKO_START_VU);
       break;
     }
   }
@@ -256,14 +374,23 @@ static void on_log(void *arg) {
 }
 
 /* a test (PCSX2, no host link there): the shell in front ends after 3 s as
-   for a host's command, and the end marker says how */
+   for a host's command; then the program arg names starts as an execee's
+   (its end marker ends the run), or without one the end marker says how */
 static void test_stop(void *arg) {
-  (void)arg;
+  const char *prog = arg;
   mx_sleep_us(3000000);
   int shell, id = front(&shell);
   mx_printf("mxlink: test: in front %d (shell %d); ending it\n", id, shell);
   int r = front_free("test");
   mx_printf("mxlink: test: %d, in front now %d\n", r, front(&shell));
+  if (prog && r == 0) {
+    int c = mx_proc_spawn(1, prog, (u32)strlen(prog) + 1, 0);
+    mx_printf("mxlink: test: %s: process %d\n", prog, c);
+    if (c > 0) {
+      host_child = c;
+      return;
+    }
+  }
   mx_printf("@@PS2TEST_END@@ status=%d\n", r < 0 || front(&shell) ? 1 : 0);
 }
 
@@ -302,7 +429,7 @@ int main(int argc, char **argv) {
   if (first > 0 && front(&shell) == first && !shell)
     host_child = first;
   if (argc > 1 && !strcmp(argv[1], "test-stop"))
-    mx_thread_start(test_stop, 0, stacks[3], sizeof stacks[3], 40);
+    mx_thread_start(test_stop, argc > 2 ? argv[2] : 0, stacks[3], sizeof stacks[3], 40);
   if (argc > 1 && !strcmp(argv[1], "marker"))
     mx_printf("@@PS2TEST_END@@ status=0\n");
   on_events();
