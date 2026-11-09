@@ -28,9 +28,16 @@ int main(void) {
   /* this one is in front, mxlink beside it */
   struct mx_proc_info p[4];
   int k = mx_proc_list(p, 4), beside = 0;
-  for (int i = 0; i < k && i < 4; i++)
-    beside += p[i].state == MX_PROC_BESIDE && !memcmp(p[i].name + strlen(p[i].name) - 14,
-                                                      "mxlink-app.elf", 14);
+  for (int i = 0; i < k && i < 4; i++) {
+    /* host:mxlink-app.elf, or mc0:/MXOS/MXLINK-APP.ELF */
+    u32 l = strlen(p[i].name);
+    char t[15] = {0};
+    for (u32 j = 0; j < 14 && l >= 14; j++) {
+      char c = p[i].name[l - 14 + j];
+      t[j] = c >= 'A' && c <= 'Z' ? (char)(c - 'A' + 'a') : c;
+    }
+    beside += p[i].state == MX_PROC_BESIDE && !strcmp(t, "mxlink-app.elf");
+  }
   bad += beside != 1;
   n = mx_msg_send(port, "nope", 5, rep, sizeof rep);
   bad += n <= 0 || memcmp(rep, "mxlink: unknown", 15) != 0;

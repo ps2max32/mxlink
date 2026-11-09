@@ -1,7 +1,7 @@
 # mxlink: the host link, ps2client's protocol (ps2link's). Its IOP module,
 # ps2link.irx (iop/), which the kernel (apps/mxos) loads at the boot; its EE
-# side is still in the kernel (apps/mxos/ee/cmd.c) until it moves into the
-# app, the skeleton in ee/ (mx OS plan, step 2e-4).
+# side, the app in ee/ (mx OS plan, step 2e-4), a service the kernel starts;
+# the kernel (apps/mxos/ee/cmd.c) still serves the commands the app does not.
 #
 #   make    build/apps/mxlink/ps2link.irx and mxlink-app.elf
 

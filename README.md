@@ -6,13 +6,10 @@ console, and `status`.
 
 Now this repo holds its IOP module, `ps2link.irx` (`iop/`, see
 `iop/README.md`), which the kernel ([mxos](https://github.com/ps2max32/mxos))
-loads at the boot from `mc0:/MXOS`; the EE side of the protocol is still in the
-kernel (`ee/cmd.c` there). It becomes a program of its own, a service beside
-the games, in step 2e of the mx OS plan (maxsdk's `docs/mx-os-apps-plan.md`):
-then it answers the host while a game runs.
-
-## Build
-
+loads at the boot from `mc0:/MXOS`, and its EE side as an app, a service beside
+the games (`ee/`, step 2e of the mx OS plan, maxsdk's `docs/mx-os-apps-plan.md`).
+The app serves `execee` and the ping so far; the kernel still serves the rest
+(`ee/cmd.c` there), and everything while the app is not running.
 ```
 make      # build/apps/mxlink/ps2link.irx
 ```
@@ -24,17 +21,27 @@ for `mipsel-none-irx`, linked by `ld.lld --irx`, and ps2sdk's IOP headers
 ## The app (ee/, mx OS step 2e-4)
 
 `ee/main.c` is mxlink's EE side as an app: a service beside every program in front
-(`mx_proc_service`, mx-kernel 18), on the kernel's general interface only. It is a text
+(`mx_proc_service`), on the kernel's general interface only (mx-kernel 20). It is a text
 service: what it says goes to the kernel's log, for the shell to show as its console, and
-it has no screen of its own. So far a skeleton, built as `build/apps/mxlink/mxlink-app.elf`:
+it has no screen of its own. Built as `build/apps/mxlink/mxlink-app.elf`; on the card it is
+`mc0:/MXOS/MXLINK-APP.ELF`, which `mc0:/MXOS/SERVICES.CFG` names, so the kernel starts it at
+the boot and the shell after it (`make -C apps/mxos shell` puts both into the card's files).
 
-- the kernel's events: a program's end, with its exit status and the runner's end marker;
+- ps2client's commands, which the kernel passes on to the port of the host link's IOP
+  channel (`MX_IOP_CHANNEL_HOST`): `execee` and `dumpreg` (ps2client's ping). For them the
+  shell in front ends (the text screen after it until a reset); another program in front
+  refuses them. ps2link.irx still sends them to the kernel by SIF DMA;
+- the kernel's events: the end of the host's program, with the runner's end marker;
 - its port `mxlink`: requests from other processes (`status`);
-- its IOP channel (SIF command 18), where ps2link.irx's commands will come;
 - the log, read as the host's console will be.
 
-The EE side that serves ps2client is still the kernel's (`apps/mxos/ee/cmd.c`) until it moves
-here. `ee/tests/status.c` (`mxlink-status.elf`) runs in front of it. On PCSX2:
+A program that takes all memory (no core heap of its own) ends the app, and one on the BIOS's
+threads restarts the kernel: the kernel serves the host until the app is back after it.
+Started by the host (`execee host:mxlink-app.elf marker`), the app prints the end marker once it
+is the service. With an older kernel (18, 19) it becomes a service that does nothing, so that
+the shell comes. `ee/tests/status.c` (`mxlink-status.elf`) runs in front of it. On PCSX2 (no
+host link there; `test-stop` ends the shell in front after 3 s, as for a command):
 
     MXSERVICE="host:mxlink-app.elf" MXLOAD="host:mxlink-status.elf" run.sh <the emu kernel>
+    MXSERVICE="host:mxlink-app.elf test-stop" MXLOAD="host:MXSHELL.ELF console" run.sh <the emu kernel>
 
