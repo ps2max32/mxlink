@@ -1,9 +1,9 @@
-# mxlink: the host link, ps2client's protocol (ps2link's). For now its IOP
-# module, ps2link.irx (iop/), which the kernel (apps/mxos) loads at the boot;
-# its EE side is still in the kernel (apps/mxos/ee/cmd.c) until mxlink is a
-# program of its own (mx OS plan, step 2e).
+# mxlink: the host link, ps2client's protocol (ps2link's). Its IOP module,
+# ps2link.irx (iop/), which the kernel (apps/mxos) loads at the boot; its EE
+# side is still in the kernel (apps/mxos/ee/cmd.c) until it moves into the
+# app, the skeleton in ee/ (mx OS plan, step 2e-4).
 #
-#   make    build/apps/mxlink/ps2link.irx
+#   make    build/apps/mxlink/ps2link.irx and mxlink-app.elf
 
 all:
 
@@ -18,7 +18,11 @@ IOP_FLAGS = $(IOP_CFLAGS) -Os -Werror $(IOP_INCS) -Iiop
 IOP_SRCS  = net_fsys.c net_fio.c ps2link.c cmdHandler.c nprintf.c excepHandler.c
 IOP_OBJS  = $(IOP_SRCS:%.c=$(OUT)/obj/%.o)
 
-all: $(OUT)/ps2link.irx
+all: $(OUT)/ps2link.irx app
+
+app:
+	$(MAKE) -C ee OUT=$(OUT)
+.PHONY: app
 
 $(OUT)/obj/%.o: iop/%.c $(wildcard iop/*.h) $(PS2MAX)/libs/maxsdk/iop/iop.mk
 	@mkdir -p $(dir $@)
