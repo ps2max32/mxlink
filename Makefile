@@ -3,7 +3,7 @@
 # side, the app in ee/ (mx OS plan, step 2e-4), a service the kernel starts;
 # the kernel (apps/mxos/ee/cmd.c) still serves the commands the app does not.
 #
-#   make    build/apps/mxlink/ps2link.irx and mxlink-app.elf
+#   make    build/apps/mxlink/ps2link.irx and mxlink.elf (the app)
 
 all:
 

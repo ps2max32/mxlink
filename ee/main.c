@@ -16,7 +16,7 @@
    - its port "mxlink": requests from other processes (the shell): "status";
    - the log, read as the host's console will be; counted for now.
 
-   Started by the host (`execee host:mxlink-app.elf marker`), it prints the
+   Started by the host (`execee host:mxlink.elf marker`), it prints the
    end marker itself once it is the service, so that the run ends there. */
 
 #include <mx/debug.h>
