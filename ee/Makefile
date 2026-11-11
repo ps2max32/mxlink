@@ -1,5 +1,5 @@
 # mxlink's EE side, the app (mx OS step 2e-4): a service on the kernel's
-# interface, libmxk in core.
+# interface, an MXOS program in core (libmxk, mxos-core).
 #
 #   make    build/apps/mxlink/mxlink.elf (on the card: MXOS/MXLINK.ELF)
 
@@ -11,7 +11,9 @@ OUT    ?= $(PS2MAX)/build/apps/mxlink
 # its own libmx, for size: its core stays in memory beside every program
 MAXSDK_OUT = $(OUT)/maxsdk
 export EXTRA_CFLAGS = -Os -ffunction-sections -fdata-sections
-
+# an MXOS program all in core (mxos-core): it stays while another program runs,
+# and the kernel has one VM, the program in front's
+MX_TARGET = mxos-core
 include $(PS2MAX)/libs/maxsdk/mk/maxsdk.mk
 
 SRCS = main.c
@@ -23,7 +25,7 @@ $(OUT)/obj/ee/%.o: %.c $(MX_HDRS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# libmxk in core: the kernel's services, without VM
+# libmxk: the kernel's services
 LIB = $(MAXSDK_OUT)/libmxk.a
 $(LIB): $(MX_LIB)
 $(OUT)/mxlink.elf: $(OBJS) $(LIB) $(MX_CRT0) $(MX_LD)
