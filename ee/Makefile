@@ -1,5 +1,5 @@
 # mxlink's EE side, the app (mx OS step 2e-4): a service on the kernel's
-# interface, an MXOS program in core (libmxk, mxos-core).
+# interface, an MXOS program (libmxk, VM).
 #
 #   make    build/apps/mxlink/mxlink.elf (on the card: MXOS/MXLINK.ELF)
 
