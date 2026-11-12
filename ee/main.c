@@ -70,6 +70,20 @@ static int front(int *shell) {
   return 0;
 }
 
+/* whether process id is the shell; 0 also when it is gone */
+static int proc_shell(int id, int *found) {
+  struct mx_proc_info p[4];
+  int n = mx_proc_list(p, 4);
+  *found = 0;
+  for (int i = 0; i < n && i < 4; i++)
+    if (p[i].id == id) {
+      u32 l = strlen(p[i].name);
+      *found = 1;
+      return l >= 11 && !strcmp(p[i].name + l - 11, "MXSHELL.ELF");
+    }
+  return 0;
+}
+
 /* Nothing in front, for a command of the host: the shell ends (the text
    screen after it, until the next reset); another program stays and the
    command is refused. 0, or -1. */
@@ -428,8 +442,10 @@ int main(int argc, char **argv) {
   mx_printf("mxlink: the host link, a service (process %d); in front: process %d\n",
             mx_proc_self(), first);
   /* in front: the shell, or none; on PCSX2 host:mxload.txt's, the run's */
-  int shell;
-  if (first > 0 && front(&shell) == first && !shell)
+  /* by its id, in front or not: it may have started another beside it
+     already (then the other is in front) */
+  int found, shell = first > 0 ? proc_shell(first, &found) : 0;
+  if (first > 0 && found && !shell)
     host_child = first;
   if (argc > 1 && !strcmp(argv[1], "test-stop"))
     mx_thread_start(test_stop, argc > 2 ? argv[2] : 0, stacks[3], sizeof stacks[3], 40);
