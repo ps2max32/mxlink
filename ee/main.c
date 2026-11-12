@@ -107,6 +107,9 @@ static void execee(const u8 *p, u32 len) {
   int id = mx_proc_spawn(argc, args, n, 0);
   if (id < 0) {
     mx_printf("mxlink: execee %s: did not start\n", args);
+    /* the run's end: a refused program (not an MXOS one) ends it as a
+       program that could not be found would (127) */
+    mx_printf("@@PS2TEST_END@@ status=127\n");
     return;
   }
   host_child = id;
