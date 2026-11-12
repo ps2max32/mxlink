@@ -411,7 +411,7 @@ static void test_stop(void *arg) {
   mx_printf("@@PS2TEST_END@@ status=%d\n", r < 0 || front(&shell) ? 1 : 0);
 }
 
-static u8 stacks[4][8 << 10] MX_ALIGNED(16);
+static u8 stacks[4][8 << 10] MX_ALIGNED(16) MX_CORE_DATA; /* stacks: core */
 
 int main(int argc, char **argv) {
   if (!mx__kernel || mx__kernel->version < 18)

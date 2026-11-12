@@ -11,9 +11,9 @@ OUT    ?= $(PS2MAX)/build/apps/mxlink
 # its own libmx, for size: its core stays in memory beside every program
 MAXSDK_OUT = $(OUT)/maxsdk
 export EXTRA_CFLAGS = -Os -ffunction-sections -fdata-sections
-# an MXOS program all in core (mxos-core): it stays while another program runs,
-# and the kernel has one VM, the program in front's
-MX_TARGET = mxos-core
+# an MXOS program with VM: it stays beside every program in front, in an address
+# space of its own (the kernel's VM programs side by side, mx OS plan 3a)
+MX_TARGET = mxos
 include $(PS2MAX)/libs/maxsdk/mk/maxsdk.mk
 
 SRCS = main.c
