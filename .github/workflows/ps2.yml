@@ -1,6 +1,7 @@
-# .github/workflows/ps2.yml of ps2max32/mxlink, mx OS's host link.
-# Every push and PR: build its IOP module, ps2link.irx, with
-# ghcr.io/ps2max32/ps2max (clang and ld.lld for the IOP), as an artifact.
+# .github/workflows/ps2.yml of ps2max32/mxlink (template: ci/mxlink.yml of ps2max32/docker).
+# Builds with the commits its ps2max.deps names (LLVM, maxsdk, ...), through
+# the reusable build of ps2max32/docker. Every push and PR: ps2link.irx
+# (the kernel's host link) and mxlink.elf (the app, mc0:/MXOS/MXLINK.ELF) as an artifact.
 name: ps2
 
 on:
@@ -9,15 +10,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-26.04
-    container: ghcr.io/ps2max32/ps2max:latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Build
-        run: make -j$(nproc) OUT=$PWD/out
-      - uses: actions/upload-artifact@v7
-        with:
-          name: mxlink-${{ github.sha }}
-          path: out/ps2link.irx
-          if-no-files-found: error
+  ps2:
+    uses: ps2max32/docker/.github/workflows/build.yml@main
+    with:
+      artifacts: |
+        out/ps2link.irx
+        out/mxlink.elf
+      release: false
