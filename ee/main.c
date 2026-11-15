@@ -56,6 +56,15 @@ static volatile int host_child;
 static u32 be32(const u8 *p) { return (u32)p[0] << 24 | (u32)p[1] << 16 | (u32)p[2] << 8 | p[3]; }
 static u16 be16(const u8 *p) { return (u16)(p[0] << 8 | p[1]); }
 
+/* the shell: its role from the kernel (version 26: the card's configuration
+   names its path), by its file's name before */
+static int is_shell(const struct mx_proc_info *p) {
+  if (mx__kernel && mx__kernel->version >= 26)
+    return (p->flags & MX_PROC_SHELL) != 0;
+  u32 l = strlen(p->name);
+  return l >= 11 && !strcmp(p->name + l - 11, "MXSHELL.ELF");
+}
+
 /* the program in front: its process, 0 none; *shell when it is the shell */
 static int front(int *shell) {
   struct mx_proc_info p[4];
@@ -63,8 +72,7 @@ static int front(int *shell) {
   *shell = 0;
   for (int i = 0; i < n && i < 4; i++)
     if (p[i].state == MX_PROC_FRONT) {
-      u32 l = strlen(p[i].name);
-      *shell = l >= 11 && !strcmp(p[i].name + l - 11, "MXSHELL.ELF");
+      *shell = is_shell(&p[i]);
       return p[i].id;
     }
   return 0;
@@ -77,9 +85,8 @@ static int proc_shell(int id, int *found) {
   *found = 0;
   for (int i = 0; i < n && i < 4; i++)
     if (p[i].id == id) {
-      u32 l = strlen(p[i].name);
       *found = 1;
-      return l >= 11 && !strcmp(p[i].name + l - 11, "MXSHELL.ELF");
+      return is_shell(&p[i]);
     }
   return 0;
 }
