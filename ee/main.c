@@ -91,6 +91,24 @@ static int proc_shell(int id, int *found) {
   return 0;
 }
 
+/* The run's swap file on host: (kernel version 28), when the host gives
+   one: host:mxswap.txt, "host:<path> [MiB]" (the runner's HOSTSWAP); 0 none */
+static const char *host_swap(void) {
+  static char swap[64];
+  int fd = mx_fio_open("host:mxswap.txt", MX_FIO_RDONLY);
+  if (fd < 0)
+    return 0;
+  int n = mx_fio_read(fd, swap, sizeof swap - 1);
+  mx_fio_close(fd);
+  if (n <= 0)
+    return 0;
+  swap[n] = 0;
+  for (int i = 0; i < n; i++)
+    if (swap[i] == '\r' || swap[i] == '\n')
+      swap[i] = 0;
+  return !strncmp(swap, "host:", 5) ? swap : 0;
+}
+
 /* Nothing in front, for a command of the host: the shell ends (the text
    screen after it, until the next reset); another program stays and the
    command is refused. 0, or -1. */
@@ -125,7 +143,7 @@ static void execee(const u8 *p, u32 len) {
   }
   if (argc < 1 || front_free("execee") < 0)
     return;
-  int id = mx_proc_spawn(argc, args, n, 0);
+  int id = mx_proc_spawn(argc, args, n, host_swap());
   if (id < 0) {
     mx_printf("mxlink: execee %s: did not start\n", args);
     /* the run's end: a refused program (not an MXOS one) ends it as a
